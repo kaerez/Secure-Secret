@@ -267,9 +267,14 @@ function main() {
         strengthText.textContent = result.feedback.warning || ' ';
     });
     
-    // Add submit listeners to forms instead of keypress on inputs
-    document.querySelector('#create-view form').addEventListener('submit', () => createBtn.click());
-    document.querySelector('#decrypt-view form').addEventListener('submit', () => decryptBtn.click());
+    document.querySelector('#create-view form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        createBtn.click();
+    });
+    document.querySelector('#decrypt-view form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        decryptBtn.click();
+    });
     
     createPwToggle.addEventListener('click', () => togglePasswordVisibility(passwordInput, createPwToggle));
     decryptPwToggle.addEventListener('click', () => togglePasswordVisibility(decryptPasswordInput, decryptPwToggle));
