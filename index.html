@@ -10,10 +10,10 @@ See the LICENSE, LICENSE.AGPL.md, and NOTICE.md files for full details.
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src 'self' https://cdn.jsdelivr.net;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://cdnjs.cloudflare.com; img-src 'self' data:;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="data:,">
-    <title>Secure Secret</title>
+    <title>Secure Secret Sharer</title>
     <style>
         :root {
             --primary-bg: #1e1e2e;
@@ -288,8 +288,9 @@ See the LICENSE, LICENSE.AGPL.md, and NOTICE.md files for full details.
                     <div id="char-counter" class="char-counter">0</div>
                 </div>
                 <div class="input-group">
+                    <input type="text" name="username" autocomplete="off" style="display:none;">
                     <label for="password-input">Password</label>
-                    <input type="password" id="password-input" placeholder="Enter a strong password" autocomplete="new-password">
+                    <input type="password" id="password-input" placeholder="Enter a strong password" autocomplete="off">
                     <span class="password-toggle-icon" id="create-pw-toggle">👁️</span>
                     <div class="password-strength">
                         <div id="strength-bar" class="strength-bar"></div>
@@ -321,8 +322,9 @@ See the LICENSE, LICENSE.AGPL.md, and NOTICE.md files for full details.
             <form action="javascript:void(0);">
                 <h1>Unlock Secret</h1>
                 <div class="input-group">
+                    <input type="text" name="username" autocomplete="off" style="display:none;">
                     <label for="decrypt-password-input">Password</label>
-                    <input type="password" id="decrypt-password-input" placeholder="Enter password to decrypt" autocomplete="current-password">
+                    <input type="password" id="decrypt-password-input" placeholder="Enter password to decrypt" autocomplete="off">
                     <span class="password-toggle-icon" id="decrypt-pw-toggle">👁️</span>
                 </div>
                 <button id="decrypt-btn" type="submit">

@@ -71,20 +71,14 @@ const bs58 = (() => {
     return { encode, decode };
 })();
 
-// This function tries to load local scripts first, and if that fails,
-// it correctly sets the wasm path for the CDN fallback.
-function loadScript(localUrl, cdnUrl, integrity, isArgon = false) {
+// This function tries to load local scripts first, falling back to CDN if they fail.
+function loadScript(localUrl, cdnUrl, integrity) {
     return new Promise((resolve, reject) => {
         const script = document.createElement('script');
         script.src = localUrl;
-        script.onload = () => {
-            if (isArgon) window.argon2WasmPath = 'argon2.wasm';
-            resolve();
-        };
+        script.onload = () => resolve();
         script.onerror = () => {
             console.warn(`Could not load local script ${localUrl}. Falling back to CDN.`);
-            if (isArgon) window.argon2WasmPath = 'https://cdn.jsdelivr.net/npm/argon2-browser@1.18.0/dist/argon2.wasm';
-            
             const fallbackScript = document.createElement('script');
             fallbackScript.src = cdnUrl;
             if (integrity) {
@@ -107,10 +101,9 @@ async function loadDependencies() {
             'sha256-wO3gP8vL2wB+pC9x/U2rYv9yLle1sHK32s/iXm/pARw='
         );
         await loadScript(
-            'argon2.js', 
-            'https://cdn.jsdelivr.net/npm/argon2-browser@1.18.0/lib/argon2.js', 
-            'sha256-K3gqVqHkOl3iQ2aTqjG2p2i0d2wGj+5pTDF2fTfC+ok=',
-            true // isArgon = true
+            'argon2-bundled.min.js', 
+            'https://cdnjs.cloudflare.com/ajax/libs/argon2-browser/1.18.0/argon2-bundled.min.js',
+            'sha384-OAV3G95eJxcf+ioclT9GGSgO3gKzXW+HjX2A9A3k/gS5t/zY/C5f7x3w2d1b+c1d'
         );
         return true;
     } catch (error) {
