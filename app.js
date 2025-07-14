@@ -103,7 +103,7 @@ async function loadDependencies() {
         await loadScript(
             'argon2-bundled.min.js', 
             'https://cdnjs.cloudflare.com/ajax/libs/argon2-browser/1.18.0/argon2-bundled.min.js',
-            'sha384-OAV3G95eJxcf+ioclT9GGSgO3gKzXW+HjX2A9A3k/gS5t/zY/C5f7x3w2d1b+c1d'
+            'sha512-Alrh8vbmKDc5xiq7I/y8LTDwy9nw1nT9S/yR73HMMoWrpX4S1kizNPdWM896c/CDIGILNwAiaih627A94kRhYQ=='
         );
         return true;
     } catch (error) {
