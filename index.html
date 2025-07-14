@@ -1,0 +1,729 @@
+<!--
+Copyright (C) 2025 KSEC - Erez Kalman. All Rights Reserved.
+
+SPDX-License-Identifier: (AGPL-3.0-or-later OR LicenseRef-Erez_Kalman_KSEC-Commercial)
+
+This source code is licensed under a dual-license model.
+See the LICENSE, LICENSE.AGPL.md, and NOTICE.md files for full details.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- ENHANCEMENT: Content Security Policy to prevent XSS and allow required external resources. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src 'self' https://cdn.jsdelivr.net;">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Secret Sharer</title>
+    <style>
+        :root {
+            --primary-bg: #1e1e2e;
+            --secondary-bg: #28283e;
+            --text-color: #cdd6f4;
+            --accent-color: #89b4fa;
+            --accent-hover: #a6c9ff;
+            --danger-color: #f38ba8;
+            --success-color: #a6e3a1;
+            --warning-color: #fab387;
+            --border-color: #45475a;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--primary-bg);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #app-container {
+            width: 100%;
+            max-width: 600px;
+            background-color: var(--secondary-bg);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            padding: 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            margin-bottom: auto;
+            margin-top: auto;
+        }
+
+        .view { display: none; }
+        .view.active { display: block; }
+
+        h1, h2 {
+            color: var(--accent-color);
+            text-align: center;
+            margin-top: 0;
+        }
+        
+        h2 {
+            margin-top: 1.5rem;
+            font-size: 1.2rem;
+        }
+
+        .input-group {
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+        }
+
+        textarea, input[type="password"], input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            background-color: var(--primary-bg);
+            color: var(--text-color);
+            font-size: 1rem;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+        
+        input[type="password"] {
+            padding-right: 40px;
+        }
+
+        textarea:focus, input[type="password"]:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+        
+        .char-counter {
+            text-align: right;
+            font-size: 0.8rem;
+            color: var(--border-color);
+            margin-top: 0.25rem;
+        }
+        .char-counter.warn {
+            color: var(--warning-color);
+            font-weight: bold;
+        }
+        
+        #result-link {
+            word-break: break-all;
+        }
+        
+        .password-toggle-icon {
+            position: absolute;
+            top: 40px;
+            right: 10px;
+            cursor: pointer;
+            color: var(--text-color);
+            opacity: 0.7;
+            user-select: none;
+        }
+        .password-toggle-icon:hover {
+            opacity: 1;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 4px;
+            background-color: var(--accent-color);
+            color: var(--primary-bg);
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s, opacity 0.3s, transform 0.1s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button:hover {
+            background-color: var(--accent-hover);
+        }
+        
+        button:disabled {
+            background-color: var(--border-color);
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        
+        .button-secondary {
+            background-color: var(--border-color);
+            color: var(--text-color);
+            margin-top: 1rem;
+        }
+        .button-secondary:hover {
+             background-color: #585b70;
+        }
+        
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            display: none;
+        }
+        button.loading .spinner {
+            display: block;
+        }
+        button.loading .btn-text {
+            display: none;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .password-strength {
+            margin-top: 0.5rem;
+            height: 5px;
+            background-color: var(--border-color);
+            border-radius: 5px;
+            overflow: hidden;
+            transition: all 0.3s;
+        }
+
+        .strength-bar {
+            height: 100%;
+            width: 0;
+            transition: width 0.3s, background-color 0.3s;
+        }
+
+        .strength-bar.s0 { width: 20%; background-color: var(--danger-color); }
+        .strength-bar.s1 { width: 40%; background-color: var(--danger-color); }
+        .strength-bar.s2 { width: 60%; background-color: var(--warning-color); }
+        .strength-bar.s3 { width: 80%; background-color: var(--success-color); }
+        .strength-bar.s4 { width: 100%; background-color: var(--success-color); }
+        
+        .strength-text {
+            margin-top: 0.25rem;
+            font-size: 0.8rem;
+            text-align: right;
+            min-height: 1.2em;
+        }
+
+        .message {
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            text-align: center;
+            font-weight: bold;
+            line-height: 1.5;
+        }
+
+        .message-error { background-color: var(--danger-color); color: var(--primary-bg); }
+        .message-success { background-color: var(--success-color); color: var(--primary-bg); }
+        .message-info { background-color: var(--accent-color); color: var(--primary-bg); }
+        
+        footer {
+            width: 100%;
+            text-align: center;
+            padding: 1rem 0;
+            margin-top: 2rem;
+            color: var(--text-color);
+            opacity: 0.7;
+            font-size: 0.9rem;
+        }
+        
+        details {
+            margin-top: 2rem;
+            background-color: var(--primary-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+        summary {
+            padding: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            color: var(--accent-color);
+        }
+        .details-content {
+            padding: 0 1rem 1rem 1rem;
+            line-height: 1.6;
+            font-size: 0.9rem;
+        }
+        .details-content p, .details-content ul { margin-top: 0; }
+        .details-content h2 { font-size: 1.1rem; margin-bottom: 0.5rem; }
+    </style>
+</head>
+<body>
+
+    <div id="app-container">
+        <!-- View 0: Insecure Context Error -->
+        <div id="insecure-context-view" class="view">
+            <h1>🔒 Security Error</h1>
+            <div class="message message-error">
+                This application requires a secure context (HTTPS) to run.<br>
+                Please host this file on a web server or use a service like GitHub Pages. Do not open it as a local file.
+            </div>
+        </div>
+        
+        <!-- View -1: Dependency Loading Error -->
+        <div id="dependency-error-view" class="view">
+            <h1>❌ Loading Error</h1>
+            <div id="dependency-error-message" class="message message-error"></div>
+        </div>
+
+        <!-- View 1: Create Secret -->
+        <div id="create-view" class="view">
+            <h1>Share a Secret</h1>
+            <div class="input-group">
+                <label for="secret-input">Secret to share</label>
+                <textarea id="secret-input" placeholder="Enter your secret here..." autocomplete="off"></textarea>
+                <div id="char-counter" class="char-counter">0</div>
+            </div>
+            <div class="input-group">
+                <label for="password-input">Password</label>
+                <input type="password" id="password-input" placeholder="Enter a strong password" autocomplete="new-password">
+                <span class="password-toggle-icon" id="create-pw-toggle">👁️</span>
+                <div class="password-strength">
+                    <div id="strength-bar" class="strength-bar"></div>
+                </div>
+                <div id="strength-text" class="strength-text"></div>
+            </div>
+            <button id="create-btn">
+                <span class="btn-text">Generate Secure Link</span>
+                <div class="spinner"></div>
+            </button>
+            <div id="create-error" class="message message-error" style="display: none; margin-top: 1rem;"></div>
+        </div>
+
+        <!-- View 2: Show Link -->
+        <div id="link-view" class="view">
+            <h1>Link Generated Successfully</h1>
+            <div class="message message-info">
+                Your secret is encrypted. Only someone with the password and this exact link can open it.
+            </div>
+            <div class="input-group">
+                <label for="result-link">Your Secure Link</label>
+                <input type="text" id="result-link" readonly autocomplete="off">
+            </div>
+            <button id="copy-link-btn">Copy Link</button>
+            <button id="create-new-secret-btn-from-link" class="button-secondary">Create New Secret</button>
+        </div>
+        
+        <!-- View 3: Decrypt Secret -->
+        <div id="decrypt-view" class="view">
+            <h1>Unlock Secret</h1>
+            <div class="input-group">
+                <label for="decrypt-password-input">Password</label>
+                <input type="password" id="decrypt-password-input" placeholder="Enter password to decrypt" autocomplete="current-password">
+                <span class="password-toggle-icon" id="decrypt-pw-toggle">👁️</span>
+            </div>
+            <button id="decrypt-btn">
+                <span class="btn-text">Decrypt Secret</span>
+                <div class="spinner"></div>
+            </button>
+            <div id="decrypt-error" class="message message-error" style="display: none; margin-top: 1rem;"></div>
+        </div>
+
+        <!-- View 4: Show Secret -->
+        <div id="secret-view" class="view">
+            <h1>Decrypted Secret</h1>
+            <div class="message message-success">
+                This secret will not be saved. Copy it now.
+            </div>
+            <div class="input-group">
+                <label for="revealed-secret">Your Secret</label>
+                <textarea id="revealed-secret" readonly autocomplete="off"></textarea>
+            </div>
+            <button id="copy-secret-btn">Copy Secret</button>
+            <button id="create-new-secret-btn-from-secret" class="button-secondary">Create New Secret</button>
+        </div>
+        
+        <!-- View 5: Loading -->
+        <div id="loading-view" class="view active">
+            <h1 id="loading-text">Loading Dependencies...</h1>
+        </div>
+        
+        <details>
+            <summary>How It Works & Security Recommendations</summary>
+            <div class="details-content">
+                <h2>How It Works</h2>
+                <p>This tool uses strong, modern, end-to-end encryption to protect your secrets. Here's the security model:</p>
+                <ul>
+                    <li><strong>Client-Side Encryption:</strong> All encryption and decryption happens directly in your browser. The server never sees your password or your unencrypted secret.</li>
+                    <li><strong>Zero-Knowledge Server:</strong> The website itself is just a static file. It has no database and stores no information about you or your secrets.</li>
+                    <li><strong>Strong Cryptography:</strong> Your password is used to derive a key with Argon2id (a modern key derivation function). Your secret is then encrypted with that key using AES-256-GCM, a military-grade encryption standard.</li>
+                    <li><strong>Data in URL:</strong> All the data needed to decrypt the secret (the encrypted text, salt, etc.) is stored in the URL fragment (#), which is never sent to the web server.</li>
+                </ul>
+                <h2>Important Security Recommendations</h2>
+                <ul>
+                    <li><strong>Secure Channel Transmission:</strong> For maximum security, send the generated link and the password through <strong>different communication channels</strong>. For example, email the link and send the password in a separate text message.</li>
+                    <li><strong>Browser Extension Risk:</strong> Malicious browser extensions can potentially read data from your screen or intercept what you type. For highly sensitive secrets, consider using a private/incognito browser window, which typically disables extensions.</li>
+                    <li><strong>Phishing Awareness:</strong> Always verify that the URL in your browser's address bar is correct before entering a password. An attacker could create a clone of this website on a different domain to try and steal your secrets.</li>
+                </ul>
+            </div>
+        </details>
+    </div>
+    
+    <footer>(C) 2025 KSEC - Erez Kalman</footer>
+
+    <script>
+        const bs58 = (() => {
+            const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+            const BASE = ALPHABET.length;
+            const LEADER = ALPHABET.charAt(0);
+            const FACTOR = Math.log(BASE) / Math.log(256);
+            const iFACTOR = Math.log(256) / Math.log(BASE);
+            const MAP = {};
+            for (let z = 0; z < ALPHABET.length; z++) { MAP[ALPHABET.charAt(z)] = z; }
+            function encode(source) {
+                if (source.length === 0) return '';
+                let zeroes = 0, length = 0, pbegin = 0;
+                const pend = source.length;
+                while (pbegin !== pend && source[pbegin] === 0) { pbegin++; zeroes++; }
+                const size = ((pend - pbegin) * iFACTOR + 1) >>> 0;
+                const b58 = new Uint8Array(size);
+                while (pbegin !== pend) {
+                    let carry = source[pbegin], i = 0;
+                    for (let it = size - 1; (carry !== 0 || i < length) && (it !== -1); it--, i++) {
+                        carry += (256 * b58[it]) >>> 0;
+                        b58[it] = (carry % BASE) >>> 0;
+                        carry = (carry / BASE) >>> 0;
+                    }
+                    if (carry !== 0) throw new Error('Non-zero carry');
+                    length = i;
+                    pbegin++;
+                }
+                let it = size - length;
+                while (it !== size && b58[it] === 0) { it++; }
+                let str = LEADER.repeat(zeroes);
+                for (; it < size; ++it) str += ALPHABET.charAt(b58[it]);
+                return str;
+            }
+            function decode(source) {
+                if (source.length === 0) return new Uint8Array(0);
+                let psz = 0;
+                if (source[psz] === ' ') return;
+                let zeroes = 0, length = 0;
+                while (source[psz] === LEADER) { zeroes++; psz++; }
+                const size = (((source.length - psz) * FACTOR) + 1) >>> 0;
+                const b256 = new Uint8Array(size);
+                while (source[psz]) {
+                    let carry = MAP[source[psz]];
+                    if (carry === undefined) throw new Error('Invalid Base58 character');
+                    let i = 0;
+                    for (let it = size - 1; (carry !== 0 || i < length) && (it !== -1); it--, i++) {
+                        carry += (BASE * b256[it]) >>> 0;
+                        b256[it] = (carry % 256) >>> 0;
+                        carry = (carry / 256) >>> 0;
+                    }
+                    if (carry !== 0) throw new Error('Non-zero carry');
+                    length = i;
+                    psz++;
+                }
+                let it = size - length;
+                while (it !== size && b256[it] === 0) { it++; }
+                const a = new Uint8Array(zeroes + (size - it));
+                a.fill(0, 0, zeroes);
+                let j = zeroes;
+                while (it < size) { a[j++] = b256[it++]; }
+                return a;
+            }
+            return { encode, decode };
+        })();
+
+        // FIX: This function now tries to load local scripts first, and if that fails,
+        // it correctly sets the wasm path for the CDN fallback.
+        function loadScript(localUrl, cdnUrl, integrity, isArgon = false) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = localUrl;
+                script.onload = () => {
+                    if (isArgon) window.argon2WasmPath = 'argon2.wasm';
+                    resolve();
+                };
+                script.onerror = () => {
+                    console.warn(`Could not load local script ${localUrl}. Falling back to CDN.`);
+                    if (isArgon) window.argon2WasmPath = 'https://cdn.jsdelivr.net/npm/argon2-browser@1.18.0/dist/argon2.wasm';
+                    
+                    const fallbackScript = document.createElement('script');
+                    fallbackScript.src = cdnUrl;
+                    if (integrity) {
+                        fallbackScript.integrity = integrity;
+                        fallbackScript.crossOrigin = 'anonymous';
+                    }
+                    fallbackScript.onload = () => resolve();
+                    fallbackScript.onerror = () => reject(`Failed to load script from both local and CDN: ${localUrl}`);
+                    document.head.appendChild(fallbackScript);
+                };
+                document.head.appendChild(script);
+            });
+        }
+        
+        async function loadDependencies() {
+            try {
+                await loadScript(
+                    'zxcvbn.js', 
+                    'https://cdnjs.cloudflare.com/ajax/libs/zxcvbn/4.4.2/zxcvbn.js', 
+                    'sha256-wO3gP8vL2wB+pC9x/U2rYv9yLle1sHK32s/iXm/pARw='
+                );
+                await loadScript(
+                    'argon2.js', 
+                    'https://cdn.jsdelivr.net/npm/argon2-browser@1.18.0/lib/argon2.js', 
+                    'sha256-K3gqVqHkOl3iQ2aTqjG2p2i0d2wGj+5pTDF2fTfC+ok=',
+                    true // isArgon = true
+                );
+                return true;
+            } catch (error) {
+                console.error(error);
+                document.getElementById('dependency-error-message').textContent = error;
+                document.getElementById('loading-view').classList.remove('active');
+                document.getElementById('dependency-error-view').classList.add('active');
+                return false;
+            }
+        }
+        
+        function main() {
+            const views = {
+                insecure: document.getElementById('insecure-context-view'),
+                dependency: document.getElementById('dependency-error-view'),
+                create: document.getElementById('create-view'),
+                link: document.getElementById('link-view'),
+                decrypt: document.getElementById('decrypt-view'),
+                secret: document.getElementById('secret-view'),
+                loading: document.getElementById('loading-view'),
+            };
+            
+            const secretInput = document.getElementById('secret-input');
+            const charCounter = document.getElementById('char-counter');
+            const passwordInput = document.getElementById('password-input');
+            const createPwToggle = document.getElementById('create-pw-toggle');
+            const strengthBar = document.getElementById('strength-bar');
+            const strengthText = document.getElementById('strength-text');
+            const createBtn = document.getElementById('create-btn');
+            const createError = document.getElementById('create-error');
+            
+            const resultLinkInput = document.getElementById('result-link');
+            const copyLinkBtn = document.getElementById('copy-link-btn');
+
+            const decryptPasswordInput = document.getElementById('decrypt-password-input');
+            const decryptPwToggle = document.getElementById('decrypt-pw-toggle');
+            const decryptBtn = document.getElementById('decrypt-btn');
+            const decryptError = document.getElementById('decrypt-error');
+            
+            const revealedSecretTextarea = document.getElementById('revealed-secret');
+            const copySecretBtn = document.getElementById('copy-secret-btn');
+            const createNewFromLinkBtn = document.getElementById('create-new-secret-btn-from-link');
+            const createNewFromSecretBtn = document.getElementById('create-new-secret-btn-from-secret');
+            
+            const loadingText = document.getElementById('loading-text');
+
+            const switchView = (viewName, loadingMessage = 'Loading...') => {
+                for (const key in views) { views[key].classList.remove('active'); }
+                if (viewName === 'loading') { loadingText.textContent = loadingMessage; }
+                views[viewName].classList.add('active');
+                if (viewName === 'create') secretInput.focus();
+                if (viewName === 'decrypt') decryptPasswordInput.focus();
+            };
+
+            const displayError = (element, message) => {
+                element.textContent = message;
+                element.style.display = 'block';
+            };
+            
+            const hideError = (element) => { element.style.display = 'none'; };
+
+            const copyToClipboard = async (text, button, inputElement) => {
+                const originalText = button.textContent;
+                try {
+                    await navigator.clipboard.writeText(text);
+                    button.textContent = 'Copied!';
+                } catch (err) {
+                    console.error('Clipboard API failed: ', err);
+                    inputElement.select();
+                    inputElement.setSelectionRange(0, 99999);
+                    alert('Automatic copy failed. Please use Ctrl+C / Cmd+C to copy the selected text.');
+                    button.textContent = 'Copy Manually';
+                } finally {
+                    setTimeout(() => { button.textContent = originalText; }, 3000);
+                }
+            };
+            
+            const textEncoder = new TextEncoder();
+            const textDecoder = new TextDecoder();
+
+            const encryptSecret = async (secret, password) => {
+                try {
+                    const salt = window.crypto.getRandomValues(new Uint8Array(16));
+                    const argon2_opts = { pass: textEncoder.encode(password), salt: salt, time: 3, mem: 1024 * 32, hashLen: 32, parallelism: 1, type: argon2.ArgonType.Argon2id };
+                    const argon2_result = await argon2.hash(argon2_opts);
+                    const key = argon2_result.hash.slice(0, 32);
+                    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+                    const cryptoKey = await window.crypto.subtle.importKey('raw', key, { name: 'AES-GCM' }, false, ['encrypt']);
+                    const encryptedData = await window.crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, cryptoKey, textEncoder.encode(secret));
+                    const payload = new Uint8Array(salt.length + iv.length + encryptedData.byteLength);
+                    payload.set(salt, 0);
+                    payload.set(iv, salt.length);
+                    payload.set(new Uint8Array(encryptedData), salt.length + iv.length);
+                    return bs58.encode(payload);
+                } catch (err) { console.error("Encryption failed:", err); throw new Error("Could not encrypt the secret."); }
+            };
+
+            const decryptSecret = async (encodedPayload, password) => {
+                try {
+                    const payload = bs58.decode(encodedPayload);
+                    const salt = payload.slice(0, 16);
+                    const iv = payload.slice(16, 28);
+                    const encryptedData = payload.slice(28);
+                    const argon2_opts = { pass: textEncoder.encode(password), salt: salt, time: 3, mem: 1024 * 32, hashLen: 32, parallelism: 1, type: argon2.ArgonType.Argon2id };
+                    const argon2_result = await argon2.hash(argon2_opts);
+                    const key = argon2_result.hash.slice(0, 32);
+                    const cryptoKey = await window.crypto.subtle.importKey('raw', key, { name: 'AES-GCM' }, false, ['decrypt']);
+                    const decryptedData = await window.crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, cryptoKey, encryptedData);
+                    return textDecoder.decode(decryptedData);
+                } catch (err) { console.error("Decryption failed:", err); throw new Error("Decryption failed. Incorrect password or corrupted link."); }
+            };
+            
+            const handleCreateNew = () => {
+                secretInput.value = '';
+                passwordInput.value = '';
+                strengthBar.className = 'strength-bar';
+                strengthText.textContent = '';
+                charCounter.textContent = '0';
+                charCounter.classList.remove('warn');
+                history.pushState(null, '', window.location.pathname + window.location.search);
+                switchView('create');
+            };
+            
+            const togglePasswordVisibility = (input, icon) => {
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    icon.textContent = '🙈';
+                } else {
+                    input.type = 'password';
+                    icon.textContent = '👁️';
+                }
+            };
+            
+            const setButtonLoading = (button, isLoading) => {
+                button.classList.toggle('loading', isLoading);
+                button.disabled = isLoading;
+            };
+
+            secretInput.addEventListener('input', () => {
+                const len = secretInput.value.length;
+                charCounter.textContent = len;
+                charCounter.classList.toggle('warn', len > 2000);
+            });
+            
+            passwordInput.addEventListener('input', () => {
+                const password = passwordInput.value;
+                if (password.length === 0) {
+                    strengthBar.className = 'strength-bar';
+                    strengthText.textContent = '';
+                    return;
+                }
+                const result = zxcvbn(password);
+                strengthBar.className = 'strength-bar s' + result.score;
+                strengthText.textContent = result.feedback.warning || ' ';
+            });
+            
+            passwordInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') createBtn.click(); });
+            decryptPasswordInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') decryptBtn.click(); });
+            createPwToggle.addEventListener('click', () => togglePasswordVisibility(passwordInput, createPwToggle));
+            decryptPwToggle.addEventListener('click', () => togglePasswordVisibility(decryptPasswordInput, decryptPwToggle));
+
+            createBtn.addEventListener('click', () => {
+                hideError(createError);
+                const secret = secretInput.value;
+                const password = passwordInput.value;
+                if (!secret || !password) {
+                    displayError(createError, 'Please provide both a secret and a password.');
+                    return;
+                }
+                setButtonLoading(createBtn, true);
+                setTimeout(async () => {
+                    try {
+                        const encodedPayload = await encryptSecret(secret, password);
+                        const url = new URL(window.location.href);
+                        url.hash = encodedPayload;
+                        resultLinkInput.value = url.href;
+                        switchView('link');
+                    } catch (error) {
+                        displayError(createError, error.message);
+                        switchView('create');
+                    } finally {
+                        setButtonLoading(createBtn, false);
+                    }
+                }, 50);
+            });
+            
+            copyLinkBtn.addEventListener('click', () => copyToClipboard(resultLinkInput.value, copyLinkBtn, resultLinkInput));
+            
+            decryptBtn.addEventListener('click', () => {
+                hideError(decryptError);
+                const password = decryptPasswordInput.value;
+                const encodedPayload = window.location.hash.substring(1);
+                if (!password) {
+                    displayError(decryptError, 'Please enter the password.');
+                    return;
+                }
+                setButtonLoading(decryptBtn, true);
+                setTimeout(async () => {
+                    try {
+                        const decryptedSecret = await decryptSecret(encodedPayload, password);
+                        revealedSecretTextarea.value = decryptedSecret;
+                        switchView('secret');
+                    } catch (error) {
+                        displayError(decryptError, error.message);
+                        switchView('decrypt');
+                    } finally {
+                        setButtonLoading(decryptBtn, false);
+                    }
+                }, 50);
+            });
+
+            copySecretBtn.addEventListener('click', () => copyToClipboard(revealedSecretTextarea.value, copySecretBtn, revealedSecretTextarea));
+            
+            createNewFromLinkBtn.addEventListener('click', handleCreateNew);
+            createNewFromSecretBtn.addEventListener('click', handleCreateNew);
+            
+            window.addEventListener('beforeunload', () => {
+                if (revealedSecretTextarea.value) {
+                    revealedSecretTextarea.value = 'Secret cleared for security.';
+                }
+            });
+
+            const init = () => {
+                if (!window.isSecureContext) {
+                    switchView('insecure');
+                    return;
+                }
+                const hash = window.location.hash;
+                if (hash && hash.length > 1) {
+                    switchView('decrypt');
+                } else {
+                    switchView('create');
+                }
+            };
+            init();
+        }
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            const loaded = await loadDependencies();
+            if (loaded) {
+                main();
+            }
+        });
+    </script>
+</body>
+</html>
