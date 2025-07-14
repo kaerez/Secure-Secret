@@ -1,4 +1,3 @@
-```
 # Secure Secret
 
 A client-side, zero-knowledge application for securely sharing secrets. This tool encrypts your confidential information in the browser and generates a unique link. The secret can only be decrypted with the correct password and the generated link, ensuring that the server and any intermediaries never have access to the unencrypted data.
@@ -88,4 +87,3 @@ This project is released under a dual-license model. Please see the `LICENSE.AGP
 ## Disclaimer
 
 This software is provided "as is" without warranty of any kind. While it is built with strong security principles, you are solely responsible for its use and for any risks associated with sharing confidential information.
-```
