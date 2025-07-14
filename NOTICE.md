@@ -8,7 +8,7 @@ This program incorporates components from other open-source projects. The origin
 
 This software is licensed under the MIT License.
 
-Copyright (c) 2012 Dropbox, Inc.
+Copyright (c) 2012-2016 Dan Wheeler and Dropbox, Inc.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
