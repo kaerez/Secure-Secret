@@ -8,6 +8,7 @@
  */
 
 const bs58 = (() => {
+    // Base58 encoding/decoding implementation
     const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
     const BASE = ALPHABET.length;
     const LEADER = ALPHABET.charAt(0);
@@ -72,7 +73,7 @@ const bs58 = (() => {
 })();
 
 // This function tries to load local scripts first, falling back to CDN if they fail.
-function loadScript(localUrl, cdnUrl, integrity) {
+function loadScript(localUrl, cdnUrl) {
     return new Promise((resolve, reject) => {
         const script = document.createElement('script');
         script.src = localUrl;
@@ -81,10 +82,7 @@ function loadScript(localUrl, cdnUrl, integrity) {
             console.warn(`Could not load local script ${localUrl}. Falling back to CDN.`);
             const fallbackScript = document.createElement('script');
             fallbackScript.src = cdnUrl;
-            if (integrity) {
-                fallbackScript.integrity = integrity;
-                fallbackScript.crossOrigin = 'anonymous';
-            }
+            fallbackScript.crossOrigin = 'anonymous';
             fallbackScript.onload = () => resolve();
             fallbackScript.onerror = () => reject(`Failed to load script from both local and CDN: ${localUrl}`);
             document.head.appendChild(fallbackScript);
@@ -95,15 +93,23 @@ function loadScript(localUrl, cdnUrl, integrity) {
 
 async function loadDependencies() {
     try {
+        // Load the latest zxcvbn-ts libraries
         await loadScript(
-            'zxcvbn.js', 
-            'https://cdnjs.cloudflare.com/ajax/libs/zxcvbn/4.4.2/zxcvbn.js', 
-            'sha256-wO3gP8vL2wB+pC9x/U2rYv9yLle1sHK32s/iXm/pARw='
+            'zxcvbn-ts-core.js',
+            'https://cdn.jsdelivr.net/npm/@zxcvbn-ts/core@3.0.4/dist/zxcvbn-ts.js'
         );
         await loadScript(
-            'argon2-bundled.min.js', 
-            'https://cdnjs.cloudflare.com/ajax/libs/argon2-browser/1.18.0/argon2-bundled.min.js',
-            'sha512-Alrh8vbmKDc5xiq7I/y8LTDwy9nw1nT9S/yR73HMMoWrpX4S1kizNPdWM896c/CDIGILNwAiaih627A94kRhYQ=='
+            'zxcvbn-ts-lang-common.js',
+            'https://cdn.jsdelivr.net/npm/@zxcvbn-ts/language-common@3.0.4/dist/zxcvbn-ts.js'
+        );
+        await loadScript(
+            'zxcvbn-ts-lang-en.js',
+            'https://cdn.jsdelivr.net/npm/@zxcvbn-ts/language-en@3.0.2/dist/zxcvbn-ts.js'
+        );
+        // Argon2 library
+        await loadScript(
+            'argon2-bundled.min.js',
+            'https://cdnjs.cloudflare.com/ajax/libs/argon2-browser/1.18.0/argon2-bundled.min.js'
         );
         return true;
     } catch (error) {
@@ -172,8 +178,9 @@ function main() {
             button.textContent = 'Copied!';
         } catch (err) {
             console.error('Clipboard API failed: ', err);
+            // Fallback for browsers that don't support the Clipboard API in this context
             inputElement.select();
-            inputElement.setSelectionRange(0, 99999);
+            inputElement.setSelectionRange(0, 99999); // For mobile devices
             alert('Automatic copy failed. Please use Ctrl+C / Cmd+C to copy the selected text.');
             button.textContent = 'Copy Manually';
         } finally {
@@ -213,16 +220,22 @@ function main() {
             const cryptoKey = await window.crypto.subtle.importKey('raw', key, { name: 'AES-GCM' }, false, ['decrypt']);
             const decryptedData = await window.crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, cryptoKey, encryptedData);
             return textDecoder.decode(decryptedData);
-        } catch (err) { console.error("Decryption failed:", err); throw new Error("Decryption failed. Incorrect password or corrupted link."); }
+        } catch (err) {
+            // Removed console.error to prevent showing the OperationError in the console.
+            // The error is still thrown to be handled by the UI.
+            throw new Error("Decryption failed. Incorrect password or corrupted link.");
+        }
     };
     
     const handleCreateNew = () => {
+        // Reset the create form to its initial state
         secretInput.value = '';
         passwordInput.value = '';
         strengthBar.className = 'strength-bar';
         strengthText.textContent = '';
         charCounter.textContent = '0';
         charCounter.classList.remove('warn');
+        // Clear the URL hash
         history.pushState(null, '', window.location.pathname + window.location.search);
         switchView('create');
     };
@@ -242,6 +255,7 @@ function main() {
         button.disabled = isLoading;
     };
 
+    // Event Listeners
     secretInput.addEventListener('input', () => {
         const len = secretInput.value.length;
         charCounter.textContent = len;
@@ -255,7 +269,8 @@ function main() {
             strengthText.textContent = '';
             return;
         }
-        const result = zxcvbn(password);
+        // Use the zxcvbn-ts library to check password strength
+        const result = zxcvbnts.core.zxcvbn(password);
         strengthBar.className = 'strength-bar s' + result.score;
         strengthText.textContent = result.feedback.warning || ' ';
     });
@@ -281,6 +296,7 @@ function main() {
             return;
         }
         setButtonLoading(createBtn, true);
+        // Use a short timeout to allow the UI to update to the loading state
         setTimeout(async () => {
             try {
                 const encodedPayload = await encryptSecret(secret, password);
@@ -308,6 +324,7 @@ function main() {
             return;
         }
         setButtonLoading(decryptBtn, true);
+        // Use a short timeout to allow the UI to update to the loading state
         setTimeout(async () => {
             try {
                 const decryptedSecret = await decryptSecret(encodedPayload, password);
@@ -327,12 +344,14 @@ function main() {
     createNewFromLinkBtn.addEventListener('click', handleCreateNew);
     createNewFromSecretBtn.addEventListener('click', handleCreateNew);
     
+    // Clear the revealed secret from memory when the user navigates away
     window.addEventListener('beforeunload', () => {
         if (revealedSecretTextarea.value) {
             revealedSecretTextarea.value = 'Secret cleared for security.';
         }
     });
 
+    // Initial application state setup
     const init = () => {
         if (!window.isSecureContext) {
             switchView('insecure');
@@ -348,9 +367,21 @@ function main() {
     init();
 }
 
+// Load dependencies and then run the main application logic
 document.addEventListener('DOMContentLoaded', async () => {
     const loaded = await loadDependencies();
     if (loaded) {
+        // Configure zxcvbn-ts after all scripts are loaded
+        const options = {
+          translations: zxcvbnts['language-en'].translations,
+          graphs: zxcvbnts['language-common'].adjacencyGraphs,
+          dictionary: {
+            ...zxcvbnts['language-common'].dictionary,
+            ...zxcvbnts['language-en'].dictionary,
+          },
+        };
+        zxcvbnts.core.zxcvbnOptions.setOptions(options);
+
         main();
     }
 });
